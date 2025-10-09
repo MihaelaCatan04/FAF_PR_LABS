@@ -29,7 +29,7 @@ def handle_request(request_data, base_dir):
             body = b"<h1>403 Forbidden</h1>"
             return create_response(403, "Forbidden", "text/html", body)
         
-        # Security check: check if file exists
+        # Security check: check if file exists  
         if not os.path.exists(file_path):
             print("Security alert: File not found.")
             body = b"<h1>404 Not Found</h1>"
