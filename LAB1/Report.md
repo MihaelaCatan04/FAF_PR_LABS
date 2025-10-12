@@ -1,7 +1,7 @@
 # Lab 1: HTTP File Server with TCP Sockets
 
 **Course:** Network Programming  
-**Student:** Mihaela Catan
+**Student:** Mihaela Catan  
 **Group:** FAF-231
 
 ---
@@ -51,10 +51,10 @@ python main.py ./my_website 8080
 Default (Dockerfile entrypoint + CMD):
 
 ```bash
-python main.py ./my_website 8080
+docker compose up
 ```
-
-When starting the container you may override the arguments, for example to use a different directory.
+The  ``` docker compose up --build ``` command should be run if the container doesn't exist yet.
+<img width="652" height="163" alt="image" src="https://github.com/user-attachments/assets/a7236885-f2c3-411e-9e4c-07e59a4d0d7a" />
 
 ---
 
@@ -67,8 +67,17 @@ python client_main.py <host> <port> <url_path> <save_dir>
 ```
 
 ```bash
-python client_main.py localhost 8080 index.html ./downloads
-python client_main.py localhost 8080 Tutorial.pdf ./downloads
+python client_main.py localhost 8080 /index.html ./downloads
+python client_main.py localhost 8080 /Tutorial.pdf ./downloads
+```
+<img width="460" height="488" alt="image" src="https://github.com/user-attachments/assets/72d21c90-7e0f-4eac-ac76-60aabe355900" />
+
+Default (Docker compose):
+
+```bash
+docker compose up -d
+docker compose exec client sh
+python client_main.py web 8080 /cat.png /app/downloads
 ```
 
 Behavior summary (implemented in `download_file.py` and `parse_response.py`):
@@ -127,19 +136,6 @@ When a path corresponds to a directory the server calls `create_directory_listin
 
 - Shows directories first (with a folder icon / trailing slash) and files after (with a file icon).
 - Provides clickable links for each item and a "Parent Directory" link when inside subfolders.
-- Example generated snippet:
-
-```html
-<h1>Directory listing for /</h1>
-<ul>
-  <li class="dir"><a href="/HTTP%20Tutorials/">HTTP Tutorials/</a></li>
-  <li class="dir"><a href="/Networking%20Tutorials/">Networking Tutorials/</a></li>
-  <li class="dir"><a href="/Unknown%20Extensions/">Unknown Extensions/</a></li>
-  <li class="file"><a href="/index.html">index.html</a></li>
-  <li class="file"><a href="/cat.png">cat.png</a></li>
-  <li class="file"><a href="/Tutorial.pdf">Tutorial.pdf</a></li>
-</ul>
-```
 
 The listing HTML is styled and returned with `Content-Type: text/html` and status 200.
 
