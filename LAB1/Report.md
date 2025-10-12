@@ -219,6 +219,38 @@ The listing HTML is styled and returned with `Content-Type: text/html` and statu
 
 ---
 
+## Browsing on a friend's server
+
+To browse on a friend's server, both computers need to be connected in the same LAN.
+
+<img width="854" height="425" alt="Screenshot 2025-10-13 011854" src="https://github.com/user-attachments/assets/284b4943-194b-4939-8322-58cb4a6a66e8" />
+
+<img width="1467" height="778" alt="Screenshot 2025-10-13 011928" src="https://github.com/user-attachments/assets/51874f88-bd61-4fc8-8953-579609c231fc" />
+
+Then the server is connected on the same interface that is connected to the network.
+
+```bash
+server_socket.bind(("192.168.1.4", port))
+server_socket.listen(5)
+print(f"Server started at port {port}, serving directory: {directory}")
+
+print(f"Server started!")
+print(f"Serving files from: {os.path.abspath(directory)}")
+print(f"Listening on: http://192.168.1.4:{port}")
+print(f"Press Ctrl+C to stop.")
+
+```
+The code is run outside of Docker. The results are the following:
+
+<img width="1074" height="541" alt="Screenshot 2025-10-13 013603" src="https://github.com/user-attachments/assets/60154391-8bb5-421a-a4f8-7d52ddeab6c9" />
+
+<img width="251" height="84" alt="image" src="https://github.com/user-attachments/assets/7e6d6fdd-aa5c-40e6-b7ac-c1d18484c751" />
+
+<img width="379" height="164" alt="Screenshot 2025-10-13 013924" src="https://github.com/user-attachments/assets/c4c00782-b252-4d4c-89a8-b79acd846827" />
+
+
+---
+
 ## Conclusion
 
 This repository implements a minimal HTTP file server (TCP sockets) with a small client, directory-listing support, and Docker configuration for easy testing. The `Report.md` above documents how to run the server & client, the Docker setup, served directory contents, and expected behavior for 404, HTML, PDF and PNG requests.
