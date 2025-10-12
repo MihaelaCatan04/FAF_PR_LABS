@@ -3,7 +3,6 @@ version: "3.8"
 services:
   web:
     build: .
-    image: faf-pr-labs/simple-http-server:latest
     ports:
       - "8080:8080"
     volumes:
@@ -11,6 +10,9 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
     restart: unless-stopped
+    entrypoint: ["tail", "-f", "/dev/null"]
+    tty: true
+    stdin_open: true
 
   client:
     build: .
