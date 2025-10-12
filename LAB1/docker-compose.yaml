@@ -14,8 +14,10 @@ services:
 
   client:
     build: .
-    entrypoint: ["python", "client_main.py"]
+    entrypoint: ["tail", "-f", "/dev/null"]
     depends_on:
       - web
     volumes:
       - ./downloads:/app/downloads
+    tty: true
+    stdin_open: true
