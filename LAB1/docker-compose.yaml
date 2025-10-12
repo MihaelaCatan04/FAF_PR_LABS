@@ -1,0 +1,21 @@
+version: "3.8"
+
+services:
+  web:
+    build: .
+    image: faf-pr-labs/simple-http-server:latest
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./my_website:/app/my_website
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+
+  client:
+    build: .
+    entrypoint: ["python", "client_main.py"]
+    depends_on:
+      - web
+    volumes:
+      - ./downloads:/app/downloads
