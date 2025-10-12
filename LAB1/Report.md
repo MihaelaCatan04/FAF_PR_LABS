@@ -1,7 +1,7 @@
 # Lab 1: HTTP File Server with TCP Sockets
 
 **Course:** Network Programming  
-**Student:** Mihaela Catan
+**Student:** Mihaela Catan  
 **Group:** FAF-231
 
 ---
@@ -40,6 +40,54 @@ The full `index.html` is present in the repo and shows a simple HTML page with a
 
 ---
 
+## Dockerfile and docker-compose.yaml
+
+The `Dockerfile` contains:
+
+```bash
+FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY . .
+
+EXPOSE 8080
+
+# ENTRYPOINT ["python", "main.py"]
+# CMD ["./my_website", "8080"]
+```
+
+The `docker-compose.yaml` file contains:
+
+```bash
+version: "3.8"
+
+services:
+  web:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./my_website:/app/my_website
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    entrypoint: ["tail", "-f", "/dev/null"]
+    tty: true
+    stdin_open: true
+
+  client:
+    build: .
+    entrypoint: ["tail", "-f", "/dev/null"]
+    depends_on:
+      - web
+    volumes:
+      - ./downloads:/app/downloads
+    tty: true
+    stdin_open: true
+```
+
+
 ## How to start the server
 
 Run the server locally:
@@ -48,13 +96,17 @@ Run the server locally:
 python main.py ./my_website 8080
 ```
 
-Default (Dockerfile entrypoint + CMD):
+Default:
 
 ```bash
-python main.py ./my_website 8080
+docker compose up -d
+docker compose exec web sh
+python /app/main.py /app/my_website 8080
 ```
+The  ``` docker compose build ``` command should be run first if the container doesn't exist yet.
+<img width="653" height="201" alt="image" src="https://github.com/user-attachments/assets/bbe974a4-ff45-4d1f-8959-a65f9156c73a" />
 
-When starting the container you may override the arguments, for example to use a different directory.
+<img width="402" height="263" alt="image" src="https://github.com/user-attachments/assets/bd011eb3-86db-4973-af3e-5411a310ad01" />
 
 ---
 
@@ -67,9 +119,35 @@ python client_main.py <host> <port> <url_path> <save_dir>
 ```
 
 ```bash
-python client_main.py localhost 8080 index.html ./downloads
-python client_main.py localhost 8080 Tutorial.pdf ./downloads
+python client_main.py localhost 8080 /index.html ./downloads
+python client_main.py localhost 8080 /Tutorial.pdf ./downloads
 ```
+<img width="460" height="488" alt="image" src="https://github.com/user-attachments/assets/72d21c90-7e0f-4eac-ac76-60aabe355900" />
+
+Default (Docker compose):
+
+```bash
+docker compose up -d
+docker compose exec client sh
+python client_main.py web 8080 /cat.png /app/downloads
+```
+<img width="464" height="75" alt="image" src="https://github.com/user-attachments/assets/739488cd-87de-4d43-85bb-eebd92471831" />
+
+<img width="239" height="30" alt="image" src="https://github.com/user-attachments/assets/c43b742b-f54b-4b1d-888a-53436a87ead2" />
+
+<img width="746" height="56" alt="image" src="https://github.com/user-attachments/assets/eb9491a5-5f02-45ca-b6a9-ab24f7994643" />
+
+<img width="404" height="226" alt="image" src="https://github.com/user-attachments/assets/a4bd6dbc-0cf6-4a5c-bb8f-b3ce4975cc25" />
+
+<img width="243" height="29" alt="image" src="https://github.com/user-attachments/assets/40149875-f64d-463c-8da2-403a5a6869cd" />
+
+<img width="452" height="268" alt="image" src="https://github.com/user-attachments/assets/6b580a0a-bf07-4094-adb0-5dbeabe61c5c" />
+
+<img width="296" height="31" alt="image" src="https://github.com/user-attachments/assets/60764013-0475-44e3-a21c-b5b40cd460c8" />
+
+<img width="373" height="155" alt="image" src="https://github.com/user-attachments/assets/ccf66eb2-b375-4d43-ac12-10dd0266df2e" />
+
+<img width="283" height="35" alt="image" src="https://github.com/user-attachments/assets/ac185538-bc9f-4f1b-824d-7689781cb34f" />
 
 Behavior summary (implemented in `download_file.py` and `parse_response.py`):
 - Connects to host:port via a TCP socket and sends a minimal HTTP/1.1 GET request.
@@ -93,6 +171,8 @@ GET http://localhost:8080/no-such-file.txt
 ```
 
 - Server returns a styled 404 HTML page (status 404). The client will raise `FileNotFoundError` when it sees status 404.
+<img width="576" height="456" alt="image" src="https://github.com/user-attachments/assets/f63be28e-f708-44d4-8bb7-14d22daf7431" />
+
 
 2) HTML file with image
 
@@ -101,6 +181,7 @@ GET http://localhost:8080/index.html
 ```
 
 - Server returns `index.html` with `Content-Type: text/html`. Browser will then request `/cat.png` for the embedded image. The client prints the HTML body to the terminal.
+<img width="708" height="617" alt="image" src="https://github.com/user-attachments/assets/33dbccdc-ddfe-42b0-ab0c-1926c2d82293" />
 
 
 3) PDF file
@@ -108,6 +189,8 @@ GET http://localhost:8080/index.html
 ```
 GET http://localhost:8080/Tutorial.pdf
 ```
+<img width="1280" height="649" alt="image" src="https://github.com/user-attachments/assets/9d307747-3602-4249-98bf-43b744a58ed0" />
+
 
 - Server returns `application/pdf` and the client saves the file to `downloads\Tutorial.pdf`.
 
@@ -118,6 +201,7 @@ GET http://localhost:8080/cat.png
 ```
 
 - Server returns `image/png` and the client saves the file to `downloads\cat.png` (or the browser displays it inline).
+<img width="1278" height="655" alt="image" src="https://github.com/user-attachments/assets/21138b8e-f6c0-439a-a470-85aa2dd2f422" />
 
 ---
 
@@ -127,21 +211,11 @@ When a path corresponds to a directory the server calls `create_directory_listin
 
 - Shows directories first (with a folder icon / trailing slash) and files after (with a file icon).
 - Provides clickable links for each item and a "Parent Directory" link when inside subfolders.
-- Example generated snippet:
-
-```html
-<h1>Directory listing for /</h1>
-<ul>
-  <li class="dir"><a href="/HTTP%20Tutorials/">HTTP Tutorials/</a></li>
-  <li class="dir"><a href="/Networking%20Tutorials/">Networking Tutorials/</a></li>
-  <li class="dir"><a href="/Unknown%20Extensions/">Unknown Extensions/</a></li>
-  <li class="file"><a href="/index.html">index.html</a></li>
-  <li class="file"><a href="/cat.png">cat.png</a></li>
-  <li class="file"><a href="/Tutorial.pdf">Tutorial.pdf</a></li>
-</ul>
-```
 
 The listing HTML is styled and returned with `Content-Type: text/html` and status 200.
+<img width="1280" height="616" alt="image" src="https://github.com/user-attachments/assets/8a2fd57e-c764-4230-a2f1-473c722a672d" />
+
+<img width="1280" height="620" alt="image" src="https://github.com/user-attachments/assets/e8685133-49b7-4045-9336-ab89f3ead8b0" />
 
 ---
 
