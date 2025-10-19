@@ -11,7 +11,7 @@ def main():
     directory = sys.argv[1]
     port = int(sys.argv[2])
 
-    start_server(directory, port)
+    start_server(directory, port, num_threads=10, delay_requests=True, delay_time=1.0)
 
 
 if __name__ == "__main__":

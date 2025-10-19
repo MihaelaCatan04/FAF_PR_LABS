@@ -1,9 +1,10 @@
+from concurrent.futures import ThreadPoolExecutor
 import os
 import socket
-from handle_request import handle_request
+from handle_client import handle_client
 
 
-def start_server(directory, port):
+def start_server(directory, port, num_threads=10, delay_requests=False, delay_time=1.0):
     if not os.path.isdir(directory):
         raise ValueError(
             f"The directory {directory} does not exist or is not a directory."
@@ -20,22 +21,24 @@ def start_server(directory, port):
     print(f"Listening on: http://localhost:{port}")
     print(f"Press Ctrl+C to stop.")
 
-    try:
-        while True:
-            client_socket, client_address = server_socket.accept()
-            print(f"Connection from {client_address}")
-            try:
-                request_data = client_socket.recv(4096).decode("utf-8")
-                if not request_data:
+    with ThreadPoolExecutor(max_workers=num_threads) as executor:
+        try:
+            while True:
+                client_socket, client_address = server_socket.accept()
+                print(f"Connection from {client_address}")
+                try:
+                    executor.submit(
+                    handle_client,
+                    client_socket,
+                    client_address,
+                    directory,
+                    delay_requests,
+                    delay_time
+                )
+                except Exception as e:
+                    print(f"Error handling client {client_address}: {e}")
                     client_socket.close()
-                    continue
-                response = handle_request(request_data, directory)
-                client_socket.sendall(response)
-                client_socket.close()
-            except Exception as e:
-                print(f"Error handling client {client_address}: {e}")
-                client_socket.close()
-    except KeyboardInterrupt:
-        print("Shutting down server.")
-    finally:
-        server_socket.close()
+        except KeyboardInterrupt:
+            print("Shutting down server.")
+        finally:
+            server_socket.close()
