@@ -4,9 +4,10 @@ from create_response import create_response
 from get_content_type import get_content_type
 from create_directory_listing import create_directory_listing
 from urllib.parse import unquote
+import time
 
 
-def handle_request(request_data, base_dir):
+def handle_request(request_data, base_dir, add_delay=False, delay_time=1.0):
     error_template = """<!DOCTYPE html>
     <html>
     <head>
@@ -87,6 +88,9 @@ def handle_request(request_data, base_dir):
             path = path.lstrip("/")
 
         file_path = os.path.join(base_dir, path)
+
+        if add_delay:
+            time.sleep(delay_time)
 
         # Security check: prevent directory traversal attacks
         # (stop people from requesting ../../../etc/passwd)
