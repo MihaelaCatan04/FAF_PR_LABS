@@ -4,8 +4,12 @@ from create_response import create_response
 from get_content_type import get_content_type
 from create_directory_listing import create_directory_listing
 from urllib.parse import unquote
+import time
 
 def handle_request(request_data, base_dir):
+
+    # ADDED FOR LAB 2: TIME DELAY SIMULATION
+    time.sleep(1) 
     error_template = """<!DOCTYPE html>
     <html>
     <head>
