@@ -109,7 +109,11 @@ def create_directory_listing(directory_path, url_path, base_dir, request_counts=
     for item in dirs:
         encoded_name = quote(item)
         item_url = f"{url_path.rstrip('/')}/{encoded_name}/"
-        html += f'        <li class="dir"><a href="{item_url}">{item}/</a></li>\n'
+        count = request_counts.get(item_url, 0)
+        html += f"""<li class="dir">
+                        <span class="name"><a href="{item_url}">{item}/</a></span>
+                        <span class="count">{count} requests</span>
+                    </li>\n"""
 
     for item in files:
         encoded_name = quote(item)
@@ -118,10 +122,10 @@ def create_directory_listing(directory_path, url_path, base_dir, request_counts=
         file_request_path = item_url
         count = request_counts.get(file_request_path, 0)
 
-        html += f"""        <li class="file">
-                    <span class="name"><a href="{item_url}">{item}</a></span>
-                    <span class="count">{count} requests</span>
-                </li>\n"""
+        html += f"""<li class="file">
+                        <span class="name"><a href="{item_url}">{item}</a></span>
+                        <span class="count">{count} requests</span>
+                    </li>\n"""
 
     html += """        </ul>
                     </div>
