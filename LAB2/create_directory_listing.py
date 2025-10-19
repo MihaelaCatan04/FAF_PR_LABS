@@ -1,9 +1,13 @@
 import os
+from urllib.parse import quote
+
 from create_response import create_response
-from urllib.parse import quote, unquote
 
 
-def create_directory_listing(directory_path, url_path, base_dir):
+def create_directory_listing(directory_path, url_path, base_dir, request_counts=None):
+    if request_counts is None:
+        request_counts = {}
+
     try:
         items = os.listdir(directory_path)
     except PermissionError:
@@ -21,6 +25,14 @@ def create_directory_listing(directory_path, url_path, base_dir):
                             margin: 40px;
                             background-color: #f5f5f5;
                         }}
+                        .container {{
+                            max-width: 900px;
+                            margin: 0 auto;
+                            background: white;
+                            padding: 30px;
+                            border-radius: 10px;
+                            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+                        }}
                         h1 {{
                             color: #333;
                             border-bottom: 2px solid #007bff;
@@ -36,6 +48,17 @@ def create_directory_listing(directory_path, url_path, base_dir):
                             background: white;
                             border-radius: 4px;
                             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                        }}
+                        .name {{
+                            flex-grow: 1;
+                        }}
+                        .count {{
+                            background: #667eea;
+                            color: white;
+                            padding: 5px 12px;
+                            border-radius: 20px;
+                            font-size: 12px;
+                            font-weight: bold;
                         }}
                         a {{
                             text-decoration: none;
@@ -64,11 +87,14 @@ def create_directory_listing(directory_path, url_path, base_dir):
                     <hr>
                     <ul>
                 """
+
     if url_path != "/":
         parent_path = os.path.dirname(url_path.rstrip("/"))
         if not parent_path:
             parent_path = "/"
-        html += f'<li class="back"><a href="{parent_path}">Parent Directory</a></li>\n'
+        html += (
+            f'<li class="back"><a href="{parent_path}">← Parent Directory</a></li>\n'
+        )
 
     dirs = []
     files = []
@@ -88,13 +114,19 @@ def create_directory_listing(directory_path, url_path, base_dir):
     for item in files:
         encoded_name = quote(item)
         item_url = f"{url_path.rstrip('/')}/{encoded_name}"
-        html += f'        <li class="file"><a href="{item_url}">{item}</a></li>\n'
 
-    html += """    </ul>
-                <hr>
-                <p style="color: #666; font-size: 12px;">Python HTTP File Server</p>
-            </body>
-            </html>
-            """
+        file_request_path = item_url
+        count = request_counts.get(file_request_path, 0)
+
+        html += f"""        <li class="file">
+                    <span class="name"><a href="{item_url}">{item}</a></span>
+                    <span class="count">{count} requests</span>
+                </li>\n"""
+
+    html += """        </ul>
+                    </div>
+                </body>
+                </html>
+                """
 
     return html.encode("utf-8")
