@@ -1,10 +1,12 @@
 {
-  "/": 140,
-  "/Tutorial.pdf": 1,
-  "/Networking Tutorials/": 3,
-  "/HTTP Tutorials/": 2,
+  "/": 159,
+  "/Tutorial.pdf": 10,
+  "/Networking Tutorials/": 4,
+  "/HTTP Tutorials/": 4,
   "/Networking Tutorials/Networking.pdf": 1,
   "/index.html": 1,
-  "/cat.png": 1,
-  "/Unknown Extensions/": 2
+  "/cat.png": 12,
+  "/Unknown Extensions/": 18,
+  "/./index.html": 17,
+  "/HTTP Tutorials/HTTP Basics.pdf": 1
 }

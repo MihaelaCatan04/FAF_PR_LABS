@@ -1,0 +1,25 @@
+version: "3.8"
+
+services:
+  web:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./my_website:/app/my_website
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    entrypoint: ["tail", "-f", "/dev/null"]
+    tty: true
+    stdin_open: true
+
+  client:
+    build: .
+    entrypoint: ["tail", "-f", "/dev/null"]
+    depends_on:
+      - web
+    volumes:
+      - ./downloads:/app/downloads
+    tty: true
+    stdin_open: true
