@@ -1,5 +1,5 @@
 import os
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 
 from create_response import create_response
 
@@ -109,7 +109,10 @@ def create_directory_listing(directory_path, url_path, base_dir, request_counts=
     for item in dirs:
         encoded_name = quote(item)
         item_url = f"{url_path.rstrip('/')}/{encoded_name}/"
-        count = request_counts.get(item_url, 0)
+        lookup_key = unquote(item_url)
+        if not lookup_key.startswith('/'):
+            lookup_key = '/' + lookup_key.lstrip('/')
+        count = request_counts.get(lookup_key, 0)
         html += f"""<li class="dir">
                         <span class="name"><a href="{item_url}">{item}/</a></span>
                         <span class="count">{count} requests</span>
@@ -120,7 +123,10 @@ def create_directory_listing(directory_path, url_path, base_dir, request_counts=
         item_url = f"{url_path.rstrip('/')}/{encoded_name}"
 
         file_request_path = item_url
-        count = request_counts.get(file_request_path, 0)
+        lookup_key = unquote(file_request_path)
+        if not lookup_key.startswith('/'):
+            lookup_key = '/' + lookup_key.lstrip('/')
+        count = request_counts.get(lookup_key, 0)
 
         html += f"""<li class="file">
                         <span class="name"><a href="{item_url}">{item}</a></span>

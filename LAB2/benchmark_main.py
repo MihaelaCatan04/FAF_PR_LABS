@@ -1,4 +1,4 @@
-from run_benchmark import run_benchmark
+from benchmark.run_benchmark import run_benchmark
 
 def benchmark_main():
     

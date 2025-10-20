@@ -1,4 +1,5 @@
 import os
+from rate_limiter.rate_limiter import RateLimiter
 from constants import MIME_TYPES
 from create_response import create_response
 from get_content_type import get_content_type
@@ -6,8 +7,9 @@ from create_directory_listing import create_directory_listing
 from urllib.parse import unquote
 import time
 
+rate_limiter = RateLimiter(max_requests_per_second=5)
 
-def handle_request(request_data, base_dir, add_delay=False, delay_time=1.0):
+def handle_request(request_data, base_dir, client_ip, add_delay=False, delay_time=1.0, request_counter=None):
     error_template = """<!DOCTYPE html>
     <html>
     <head>
@@ -79,6 +81,20 @@ def handle_request(request_data, base_dir, add_delay=False, delay_time=1.0):
         method, path, version = request_line.split()
 
         print(f"Received request: {method} {path} {version}")
+        if not rate_limiter.is_allowed(client_ip):
+            current_count = rate_limiter.get_status(client_ip)
+            print(f"  ⛔ RATE LIMITED: {client_ip} ({current_count} requests in last 1s)")
+            
+            body = error_template.format(
+                code=429,
+                title="Too Many Requests",
+                message="You are sending requests too quickly!",
+                extra="""<div class="warning">
+                    <strong>Rate Limit Exceeded:</strong> Maximum 5 requests per second per IP.
+                    <br>Please wait a moment and try again.
+                </div>"""
+            ).encode('utf-8')
+            return create_response(429, "Too Many Requests", "text/html", body)
 
         path = unquote(path)
 
@@ -109,26 +125,33 @@ def handle_request(request_data, base_dir, add_delay=False, delay_time=1.0):
             body = error_template.format(
                 code=404,
                 title="Not Found",
-                message="The requested resource could not be found on this server.",
+                message="The requested resource could not be found on this server."
             ).encode("utf-8")
             return create_response(404, "Not Found", "text/html", body)
 
         # If it's a directory, serve directory listing
         if os.path.isdir(file_path):
             url_path = "/" + path if path else "/"
-            body = create_directory_listing(file_path, url_path, base_dir)
+            if request_counter:
+                request_path = '/' + path if path else '/'
+                request_counter.increment(request_path)
+            counts = request_counter.get_all_counts() if request_counter else {}
+            body = create_directory_listing(file_path, url_path, base_dir, counts)
             return create_response(200, "OK", "text/html", body)
 
         # If it's a file, serve the file
         if os.path.isfile(file_path):
             ext = os.path.splitext(file_path)[1].lower()
+            if request_counter:
+                request_path = '/' + path if path else '/'
+                request_counter.increment(request_path)
+            counts = request_counter.get_all_counts() if request_counter else {}
             if ext not in MIME_TYPES:
                 print(f"Unknown file type: {ext}")
                 body = error_template.format(
                     code=404, title="Not Found", message="Unsupported file type."
                 ).encode("utf-8")
                 return create_response(404, "Not Found", "text/html", body)
-
             print(f"Serving file: {file_path}")
             with open(file_path, "rb") as f:
                 file_content = f.read()
@@ -139,7 +162,7 @@ def handle_request(request_data, base_dir, add_delay=False, delay_time=1.0):
         body = error_template.format(
             code=404,
             title="Not Found",
-            message="The requested resource could not be found on this server.",
+            message="The requested resource could not be found on this server."
         ).encode("utf-8")
         return create_response(404, "Not Found", "text/html", body)
 
@@ -148,6 +171,6 @@ def handle_request(request_data, base_dir, add_delay=False, delay_time=1.0):
         body = error_template.format(
             code=500,
             title="Internal Server Error",
-            message="An unexpected error occurred while processing your request.",
+            message="An unexpected error occurred while processing your request."
         ).encode("utf-8")
         return create_response(500, "Internal Server Error", "text/html", body)
