@@ -83,7 +83,7 @@ def handle_request(request_data, base_dir, client_ip, add_delay=False, delay_tim
         print(f"Received request: {method} {path} {version}")
         if not rate_limiter.is_allowed(client_ip):
             current_count = rate_limiter.get_status(client_ip)
-            print(f"  ⛔ RATE LIMITED: {client_ip} ({current_count} requests in last 1s)")
+            print(f"RATE LIMITED: {client_ip} ({current_count} requests in last 1s)")
             
             body = error_template.format(
                 code=429,

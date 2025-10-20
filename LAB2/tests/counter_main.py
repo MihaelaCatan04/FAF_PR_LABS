@@ -1,3 +1,5 @@
+import os, sys
+sys.path.insert(0, os.path.abspath(os.path.join(__file__, '..', '..')))
 from counters.test_naive_counter import test_naive_counter
 from counters.test_safe_counter import test_safe_counter
 
