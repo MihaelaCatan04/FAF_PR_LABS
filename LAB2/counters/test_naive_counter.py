@@ -1,5 +1,8 @@
+import os, sys
+sys.path.insert(0, os.path.abspath(os.path.join(__file__, '..', '..')))
 from counters.naive_counter import RequestCounterNaive
 from concurrent.futures import ThreadPoolExecutor
+
 def test_naive_counter():
     print(f"NAIVE COUNTER")    
     counter = RequestCounterNaive('counts_demo_naive.json')

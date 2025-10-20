@@ -1,5 +1,8 @@
+import os, sys
+sys.path.insert(0, os.path.abspath(os.path.join(__file__, '..', '..')))
 from rate_limiter.run_test import run_test
 import time
+
 def compare_rate_limiting_main():
     host = "localhost"
     port = "8080"

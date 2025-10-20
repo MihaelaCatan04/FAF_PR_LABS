@@ -1,3 +1,5 @@
+import os, sys
+sys.path.insert(0, os.path.abspath(os.path.join(__file__, '..', '..')))
 from counters.safe_counter import RequestCounterSafe
 from concurrent.futures import ThreadPoolExecutor
 def test_safe_counter():

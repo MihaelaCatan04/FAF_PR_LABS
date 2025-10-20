@@ -1,6 +1,7 @@
-
+import os, sys
+sys.path.insert(0, os.path.abspath(os.path.join(__file__, '..', '..')))
 import time
-from make_request import make_request
+from rate_limiter.make_request import make_request
 
 from concurrent.futures import ThreadPoolExecutor
 def spammer_main(host, port, num_requests=50):
