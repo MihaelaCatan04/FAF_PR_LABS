@@ -12,9 +12,14 @@ def run_well_behaved_main(host, port, num_requests=10, delay_per_request=1.0):
     for i in range(num_requests):
         print(f"Request {i+1}/{num_requests}... ")
         
-        status = make_request(i+1, host, port, '/')
+        result = make_request(i+1, host, port, '/')
+        if isinstance(result, tuple) and len(result) >= 2:
+            _, status = result[0], result[1]
+        else:
+            status = result
+
         results.append(status)
-        
+
         if status == 200:
             print(f"Success")
         elif status == 429:

@@ -13,7 +13,7 @@ def compare_rate_limiting_main():
         [host, port, "50"]
     )
     
-    time.sleep(2)
+    time.sleep(10)
     
     run_test(
         "WELL-BEHAVED (10 slow requests)",

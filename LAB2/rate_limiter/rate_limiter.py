@@ -22,15 +22,12 @@ class RateLimiter:
             
             times = self.request_times[client_ip]
             
-            # Remove OLD requests (older than 1 second)
             times = [t for t in times if now - t < 1.0]
             self.request_times[client_ip] = times
             
             if len(times) >= self.max_requests:
-                # Too many requests in the last second!
                 return False
             
-            # Allow this request
             times.append(now)
             self.request_times[client_ip] = times
             
