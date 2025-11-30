@@ -124,13 +124,13 @@ def replicate_to_followers(key, value, version):
             else:
                 failed_followers.append(follower_url)
         except Exception as e:
-            print(f"[REPL] Exception in replication to {follower_url}: {e}")
+            print(f"Exception in replication to {follower_url}: {e}")
             failed_followers.append(follower_url)
         
         # Once quorum is met, return immediately
         # Remaining futures continue in background
         if successful >= WRITE_QUORUM:
-            print(f"[REPL] Quorum {WRITE_QUORUM} met for {key} v{version} (checked {checked_count}/{len(FOLLOWERS)})")
+            print(f"Quorum {WRITE_QUORUM} met for {key} v{version}")
             # If there are unchecked futures, they continue in background
             # and will be tracked in all_pending_futures
             break
@@ -159,10 +159,10 @@ def wait_for_replication():
     total_futures = len(pending)
     
     if total_futures == 0 and len(to_retry) == 0:
-        print("[WAIT] No pending futures or retries")
+        print("No pending futures or retries")
         return jsonify({"status": "no pending work"}), 200
     
-    print(f"[WAIT] Waiting for {total_futures} futures, retrying {len(to_retry)} failed replications...")
+    print(f"Waiting for {total_futures} futures, retrying {len(to_retry)} failed replications...")
     
     # Wait for all pending futures
     completed = 0
@@ -187,9 +187,9 @@ def wait_for_replication():
                 retry_success += 1
             else:
                 retry_failed += 1
-                print(f"[WAIT] Failed to replicate {key} v{version} to {follower_url} after retries")
+                print(f"Failed to replicate {key} v{version} to {follower_url} after retries")
     
-    print(f"[WAIT] Done. Completed: {completed}, Failed: {failed}, Retry Success: {retry_success}, Retry Failed: {retry_failed}")
+    print(f"Done. Completed: {completed}, Failed: {failed}, Retry Success: {retry_success}, Retry Failed: {retry_failed}")
     
     return jsonify({
         "status": "complete",
