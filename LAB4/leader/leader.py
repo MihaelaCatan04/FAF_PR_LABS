@@ -31,6 +31,16 @@ print(f"Write Quorum: {WRITE_QUORUM}")
 print(f"Delay Range: [{MIN_DELAY}ms, {MAX_DELAY}ms]")
 print(f"Followers: {FOLLOWERS}")
 
+# Validate configured quorum vs available followers
+configured_quorum = WRITE_QUORUM
+num_followers = len(FOLLOWERS)
+if num_followers == 0:
+    print("Warning: no followers configured. Replication will not happen.")
+else:
+    if configured_quorum > num_followers:
+        print(f"Warning: configured WRITE_QUORUM={configured_quorum} is greater than available followers={num_followers}. Capping to {num_followers}.")
+        WRITE_QUORUM = num_followers
+
 # Replicate a key-value pair to a single follower.
 # Returns True if successful, False otherwise.
 def replicate_to_follower(follower_url, key, value):
@@ -184,6 +194,7 @@ def get_all():
     with data_lock:
         all_data = data_store.copy()
     return jsonify({"data": all_data, "source": "leader"}), 200
+
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))

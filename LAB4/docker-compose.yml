@@ -3,21 +3,22 @@ version: '3.8'
 services:
   leader:
     build:
-      context: ./leader
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: leader/Dockerfile
     container_name: leader
     ports:
       - "5000:5000"
     environment:
-      - PORT=5000
-      - WRITE_QUORUM=3
-      - MIN_DELAY=0
-      - MAX_DELAY=1000
-      - FOLLOWER_1_URL=http://follower1:5001
-      - FOLLOWER_2_URL=http://follower2:5002
-      - FOLLOWER_3_URL=http://follower3:5003
-      - FOLLOWER_4_URL=http://follower4:5004
-      - FOLLOWER_5_URL=http://follower5:5005
+      PORT: 5000
+      # Allow overriding WRITE_QUORUM from the environment when recreating the leader
+      WRITE_QUORUM: "${WRITE_QUORUM:-3}"
+      MIN_DELAY: "${MIN_DELAY:-0}"
+      MAX_DELAY: "${MAX_DELAY:-1000}"
+      FOLLOWER_1_URL: "http://follower1:5001"
+      FOLLOWER_2_URL: "http://follower2:5002"
+      FOLLOWER_3_URL: "http://follower3:5003"
+      FOLLOWER_4_URL: "http://follower4:5004"
+      FOLLOWER_5_URL: "http://follower5:5005"
     networks:
       - replication-network
     depends_on:
@@ -29,8 +30,8 @@ services:
 
   follower1:
     build:
-      context: ./follower
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: follower/Dockerfile
     container_name: follower1
     ports:
       - "5001:5001"
@@ -42,8 +43,8 @@ services:
 
   follower2:
     build:
-      context: ./follower
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: follower/Dockerfile
     container_name: follower2
     ports:
       - "5002:5002"
@@ -55,8 +56,8 @@ services:
 
   follower3:
     build:
-      context: ./follower
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: follower/Dockerfile
     container_name: follower3
     ports:
       - "5003:5003"
@@ -68,8 +69,8 @@ services:
 
   follower4:
     build:
-      context: ./follower
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: follower/Dockerfile
     container_name: follower4
     ports:
       - "5004:5004"
@@ -81,8 +82,8 @@ services:
 
   follower5:
     build:
-      context: ./follower
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: follower/Dockerfile
     container_name: follower5
     ports:
       - "5005:5005"

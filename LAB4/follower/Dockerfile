@@ -5,6 +5,9 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY follower.py .
+COPY follower/follower.py .
 
 CMD ["python", "follower.py"]
+
+HEALTHCHECK --interval=5s --timeout=2s --start-period=5s --retries=3 \
+	CMD python -c "import sys,requests,os; port=os.environ.get('PORT','5000'); r=requests.get(f'http://127.0.0.1:{port}/health'); sys.exit(0 if r.status_code==200 else 1)"
