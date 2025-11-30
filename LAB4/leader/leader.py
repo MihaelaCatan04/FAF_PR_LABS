@@ -5,14 +5,19 @@ import requests
 import time
 import random
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from collections import defaultdict
 
 app = Flask(__name__)
 
-# In-memory key-value store
-data_store = {}
+# In-memory key-value store with versioning
+data_store = {}  # {key: {"value": value, "version": int}}
 
 # Lock for thread-safe operations
 data_lock = threading.Lock()
+
+# Global version counter for ordering writes
+version_counter = 0
+version_lock = threading.Lock()
 
 # Configuration from environment variables
 WRITE_QUORUM = int(os.environ.get('WRITE_QUORUM', 3))
@@ -38,79 +43,162 @@ if num_followers == 0:
     print("Warning: no followers configured. Replication will not happen.")
 else:
     if configured_quorum > num_followers:
-        print(f"Warning: configured WRITE_QUORUM={configured_quorum} is greater than available followers={num_followers}. Capping to {num_followers}.")
+        print(f"Warning: WRITE_QUORUM={WRITE_QUORUM} > followers={num_followers}. Capping to {num_followers}.")
         WRITE_QUORUM = num_followers
 
-# Replicate a key-value pair to a single follower.
+# Replicate a key-value pair to a single follower with retry logic.
 # Returns True if successful, False otherwise.
-def replicate_to_follower(follower_url, key, value):
-    try:
-        delay = random.randint(MIN_DELAY, MAX_DELAY) / 1000.0  # Convert to seconds
-        time.sleep(delay)  # Simulate network delay
-
-        response = requests.post(
-            f"{follower_url}/replicate",
-            json={"key": key, "value": value},
-            timeout=5
-        )
-        if response.status_code == 200:
-            print(f"Replicated to {follower_url} (delay: {delay * 1000}ms)")
-            return True
-        else:
-            print(f"Failed to replicate to {follower_url}: {response.status_code}")
-            return False
-    except Exception as e:
-        print(f"Error replicating to {follower_url}: {e}")
-        return False
+def replicate_to_follower(follower_url, key, value, version, max_retries=3):
+    for attempt in range(max_retries):
+        try:
+            # Only apply delay on first attempt (not on retries)
+            if attempt == 0:
+                delay = random.randint(MIN_DELAY, MAX_DELAY) / 1000.0
+                time.sleep(delay)
+            
+            response = requests.post(
+                f"{follower_url}/replicate",
+                json={"key": key, "value": value, "version": version},
+                timeout=5
+            )
+            if response.status_code == 200:
+                if attempt == 0:
+                    print(f"Replicated to {follower_url} v{version} (delay: {delay * 1000:.0f}ms)")
+                else:
+                    print(f"Replicated to {follower_url} v{version} (retry {attempt})")
+                return True
+            elif response.status_code == 409:
+                # Conflict due to stale version - treat as success since data is already there
+                print(f"Replicated to {follower_url} v{version} (conflict - already has newer version)")
+                return True
+            else:
+                print(f"Failed to replicate to {follower_url}: {response.status_code}")
+        except Exception as e:
+            print(f"Error replicating to {follower_url} (attempt {attempt + 1}): {e}")
+            if attempt < max_retries - 1:
+                time.sleep(0.1 * (attempt + 1))  # Exponential backoff
     
-# Replicate to all followers concurrently.
-# Returns the number of successful replications.
-def replicate_to_followers(key, value):
-    successful_replicas = 0
-    num_followers = len(FOLLOWERS)
+    return False
 
-    # If there are no followers configured, nothing to replicate to.
-    if num_followers == 0:
+# Background thread pool for async replication
+background_executor = ThreadPoolExecutor(max_workers=100, thread_name_prefix="bg-repl")
+
+# Track all pending replication futures for proper cleanup
+all_pending_futures = []
+futures_lock = threading.Lock()
+
+# Track failed replications for retry
+failed_replications = []  # List of (key, value, version, followers_to_retry)
+failed_repl_lock = threading.Lock()
+
+# Replicate to all followers concurrently.
+# Returns the number of successful replications (for quorum check).
+# Semi-synchronous: wait for WRITE_QUORUM, but ensure ALL replications eventually complete.
+def replicate_to_followers(key, value, version):
+    if not FOLLOWERS:
         return 0
 
-    executor = ThreadPoolExecutor(max_workers=num_followers)
-    shut_down_early = False
-    try:
-        future_to_follower = {
-            executor.submit(replicate_to_follower, follower_url, key, value): follower_url
-            for follower_url in FOLLOWERS
-        }
+    # Submit all replication tasks
+    future_to_follower = {
+        background_executor.submit(replicate_to_follower, follower_url, key, value, version): follower_url
+        for follower_url in FOLLOWERS
+    }
 
-        for future in as_completed(future_to_follower):
-            try:
-                ok = future.result()
-            except Exception:
-                ok = False
+    # Track ALL futures globally
+    with futures_lock:
+        all_pending_futures.extend(future_to_follower.keys())
 
-            if ok:
-                successful_replicas += 1
-
-            # As soon as we reach the write quorum, return to caller
-            # without waiting for remaining followers' replies.
-            if successful_replicas >= WRITE_QUORUM:
-                # Shut down without waiting for running tasks to finish
-                # so we don't block here. Remaining requests will continue
-                # in background threads until they complete.
-                try:
-                    executor.shutdown(wait=False)
-                except Exception:
-                    pass
-                shut_down_early = True
-                break
-    finally:
-        # Ensure executor is shut down; if we already shut down early,
-        # this is a no-op.
+    successful = 0
+    failed_followers = []
+    checked_count = 0
+    
+    # Collect results as they complete
+    for future in as_completed(future_to_follower.keys()):
+        follower_url = future_to_follower[future]
+        checked_count += 1
+        
         try:
-            executor.shutdown(wait=False)
-        except Exception:
-            pass
+            ok = future.result()
+            if ok:
+                successful += 1
+            else:
+                failed_followers.append(follower_url)
+        except Exception as e:
+            print(f"[REPL] Exception in replication to {follower_url}: {e}")
+            failed_followers.append(follower_url)
+        
+        # Once quorum is met, return immediately
+        # Remaining futures continue in background
+        if successful >= WRITE_QUORUM:
+            print(f"[REPL] Quorum {WRITE_QUORUM} met for {key} v{version} (checked {checked_count}/{len(FOLLOWERS)})")
+            # If there are unchecked futures, they continue in background
+            # and will be tracked in all_pending_futures
+            break
+    
+    # If some replications failed and we still met quorum,
+    # schedule background retry for failed ones
+    if failed_followers and successful >= WRITE_QUORUM:
+        with failed_repl_lock:
+            failed_replications.append((key, value, version, failed_followers))
+    
+    return successful
 
-    return successful_replicas
+# Helper endpoint to wait for all pending replications (for testing)
+@app.route("/wait_for_replication", methods=["GET"])
+def wait_for_replication():
+    # Get snapshot of pending futures
+    with futures_lock:
+        pending = list(all_pending_futures)
+        all_pending_futures.clear()
+    
+    # Also retry any failed replications
+    with failed_repl_lock:
+        to_retry = list(failed_replications)
+        failed_replications.clear()
+    
+    total_futures = len(pending)
+    
+    if total_futures == 0 and len(to_retry) == 0:
+        print("[WAIT] No pending futures or retries")
+        return jsonify({"status": "no pending work"}), 200
+    
+    print(f"[WAIT] Waiting for {total_futures} futures, retrying {len(to_retry)} failed replications...")
+    
+    # Wait for all pending futures
+    completed = 0
+    failed = 0
+    for future in pending:
+        try:
+            result = future.result(timeout=10)
+            if result:
+                completed += 1
+            else:
+                failed += 1
+        except Exception as e:
+            failed += 1
+            print(f"[WAIT] Future failed: {e}")
+    
+    # Retry failed replications
+    retry_success = 0
+    retry_failed = 0
+    for key, value, version, followers in to_retry:
+        for follower_url in followers:
+            if replicate_to_follower(follower_url, key, value, version, max_retries=5):
+                retry_success += 1
+            else:
+                retry_failed += 1
+                print(f"[WAIT] Failed to replicate {key} v{version} to {follower_url} after retries")
+    
+    print(f"[WAIT] Done. Completed: {completed}, Failed: {failed}, Retry Success: {retry_success}, Retry Failed: {retry_failed}")
+    
+    return jsonify({
+        "status": "complete",
+        "waited_for": total_futures,
+        "completed": completed,
+        "failed": failed,
+        "retry_success": retry_success,
+        "retry_failed": retry_failed
+    }), 200
 
 # Health check endpoint
 @app.route("/health", methods=["GET"])
@@ -119,12 +207,12 @@ def health():
 
 # Endpoint to write data
 # Body: {"key": "some_key", "value": "some_value"}
-    
-#     Process:
-#     1. Write to leader's store
-#     2. Replicate to followers concurrently
-#     3. Wait for WRITE_QUORUM confirmations
-#     4. Return success or failure
+# Process:
+#     1. Assign version number
+#     2. Write to leader's store with version
+#     3. Replicate to followers concurrently
+#     4. Wait for WRITE_QUORUM confirmations
+#     5. Return success (remaining replications continue in background)
 @app.route("/write", methods=["POST"])
 def write():
     start_time = time.time()
@@ -136,21 +224,29 @@ def write():
         if key is None or value is None:
             return jsonify({"error": "Key and Value cannot be None"}), 400
         
-        # Step 1: Write to leader's store
+        # Step 1: Assign a globally ordered version number
+        with version_lock:
+            global version_counter
+            version_counter += 1
+            version = version_counter
+        
+        # Step 2: Write to leader's store with version
         with data_lock:
-            data_store[key] = value
+            data_store[key] = {"value": value, "version": version}
 
-        print(f"Leader wrote: {key} = {value}")
+        print(f"Leader wrote: {key} = {value} (v{version})")
 
-        # Step 2 & 3: Replicate to followers and count successes
-        successful_replications = replicate_to_followers(key, value)
+        # Step 3 & 4: Replicate to followers and count successes
+        successful_replications = replicate_to_followers(key, value, version)
 
         latency = (time.time() - start_time) * 1000
-        # Step 4: Check if we met the quorum requirement
+        
+        # Step 5: Check if we met the quorum requirement
         if successful_replications >= WRITE_QUORUM:
             return jsonify({
                 "status": "success",
                 "key": key,
+                "version": version,
                 "replications": successful_replications,
                 "quorum": WRITE_QUORUM,
                 "latency_ms": round(latency, 2)
@@ -177,14 +273,15 @@ def read():
         return jsonify({"error": "Key parameter is required"}), 400
     
     with data_lock:
-        value = data_store.get(key)
+        data = data_store.get(key)
     
-    if value is None:
+    if data is None:
         return jsonify({"error": "Key not found"}), 404
     
     return jsonify({
         "key": key,
-        "value": value,
+        "value": data["value"],
+        "version": data["version"],
         "source": "leader"
     }), 200
 

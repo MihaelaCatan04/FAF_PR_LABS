@@ -90,7 +90,7 @@ Leader (default port 5000)
 - GET /health — health info (role, write_quorum, followers)
 
 Follower (default ports 5001..5005)
-- POST /replicate — used by the leader to replicate a key/value. Body: {"key":..., "value":...}.
+- POST /replicate — used by the leader to replicate a key/value. Body: {"key":..., "value":..., "version":...}.
 - GET /read?key=... — read value from follower.
 - GET /get_all — returns full follower store snapshot.
 - GET /health — follower health.
@@ -99,9 +99,29 @@ Follower (default ports 5001..5005)
 
 ## Expected behavior and explanation of results
 
-- Latency vs Quorum: average write latency increases with the write quorum because the leader waits for the k-th fastest follower ack (the k-th order statistic) before returning. With IID uniform delays in [0,T], the expected k-th order statistic grows roughly linearly in k — so average latency vs quorum is close to linear for uniform delay. The test script plots the average latency per quorum in `write_quorum_vs_latency.png`.
+### Latency vs Quorum
 
-- Replica consistency after the workload: with semi-synchronous replication the leader returns after `WRITE_QUORUM` acks; followers beyond the quorum may still be catching up. Therefore immediately after the workload it's normal that some followers don't have every key. The test waits up to 10s for eventual convergence; you can increase this timeout if your environment is slow.
+Average write latency increases with the write quorum because the leader waits for the k-th fastest follower acknowledgment (the k-th order statistic) before returning success to the client. 
+
+With independent and identically distributed (IID) uniform delays in [0, T], the expected k-th order statistic grows roughly linearly with k. This means:
+- **Quorum = 1**: Leader waits only for the fastest follower → lowest latency
+- **Quorum = 5**: Leader waits for all 5 followers → highest latency (must wait for the slowest)
+- **Intermediate values**: Latency increases approximately linearly
+
+The test script plots the average latency per quorum in `write_quorum_vs_latency.png`, demonstrating this relationship.
+
+### Replica Consistency After Writes
+
+With semi-synchronous replication, the leader returns success after receiving `WRITE_QUORUM` acknowledgments. This means:
+- **At write completion**: At least `WRITE_QUORUM` followers are guaranteed to have the data
+- **Remaining followers**: May still be catching up (eventual consistency)
+
+Immediately after the workload completes, it's normal that some followers beyond the quorum don't yet have every key. The test includes a `/wait_for_replication` endpoint that allows background replication tasks to complete, ensuring eventual consistency. The test waits up to 30 seconds for all replications to finish.
+
+**Key observations:**
+- All followers eventually converge to the same state as the leader
+- The versioning system prevents out-of-order writes from causing inconsistencies
+- Followers reject stale versions (HTTP 409 Conflict), ensuring data correctness
 
 ---
 

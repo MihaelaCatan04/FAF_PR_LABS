@@ -4,8 +4,8 @@ import threading
 
 app = Flask(__name__)
 
-# In-memory key-value store
-data_store = {}
+# In-memory key-value store with versioning
+data_store = {}  # {key: {"value": value, "version": int}}
 
 # Lock for thread-safe operations
 data_lock = threading.Lock()
@@ -18,24 +18,40 @@ def health():
     return jsonify({"status": "healthy", "follower_id": FOLLOWER_ID}), 200
 
 # Replicate data from leader
-# The leader sends: {"key": "some_key", "value": "some_value"}
+# The leader sends: {"key": "some_key", "value": "some_value", "version": int}
 @app.route("/replicate", methods=["POST"])
 def replicate():
     try:
         payload = request.get_json()
         key = payload['key']
         value = payload['value']
+        version = payload.get('version', 0)  # Default to 0 for backward compatibility
 
         if key is None:
             return jsonify({"error": "Key cannot be None"}), 400
         
-        # Store the key-value pair in a thread-safe manner
+        # Store the key-value pair with version checking
         with data_lock:
-            data_store[key] = value
-
-        print(f"[{FOLLOWER_ID}] Replicated: {key} = {value}")
-
-        return jsonify({"status": "success", "follower_id": FOLLOWER_ID, "key": key}), 200
+            existing = data_store.get(key)
+            
+            # Only accept the write if:
+            # 1. Key doesn't exist yet, OR
+            # 2. New version is greater than existing version
+            if existing is None or version > existing["version"]:
+                data_store[key] = {"value": value, "version": version}
+                print(f"[{FOLLOWER_ID}] Replicated: {key} = {value} (v{version})")
+                return jsonify({"status": "success", "follower_id": FOLLOWER_ID, "key": key, "version": version}), 200
+            else:
+                print(f"[{FOLLOWER_ID}] Rejected stale write: {key} v{version} (current: v{existing['version']})")
+                # Return 409 Conflict for stale versions so leader knows this wasn't a network failure
+                return jsonify({
+                    "status": "conflict",
+                    "reason": "stale_version",
+                    "follower_id": FOLLOWER_ID,
+                    "key": key,
+                    "current_version": existing["version"],
+                    "provided_version": version
+                }), 409
     except Exception as e:
         print(f"[{FOLLOWER_ID}] Error in replicate: {e}")
         return jsonify({"error": str(e)}), 500
@@ -49,12 +65,17 @@ def read():
         return jsonify({"error": "Key parameter is required"}), 400
     
     with data_lock:
-        value = data_store.get(key)
+        data = data_store.get(key)
 
-    if value is None:
+    if data is None:
         return jsonify({"error": "Key not found"}), 404
     
-    return jsonify({"key": key, "value": value, "follower_id": FOLLOWER_ID}), 200
+    return jsonify({
+        "key": key,
+        "value": data["value"],
+        "version": data["version"],
+        "follower_id": FOLLOWER_ID
+    }), 200
 
 # Endpoint to get all data
 @app.route("/get_all", methods=["GET"])
