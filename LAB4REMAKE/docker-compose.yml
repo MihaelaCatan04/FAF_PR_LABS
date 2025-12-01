@@ -1,0 +1,97 @@
+version: '3.8'
+
+services:
+  leader:
+    build:
+      context: .
+      dockerfile: leader/Dockerfile
+    container_name: lab4remake_leader
+    ports:
+      - "5000:5000"
+    environment:
+      PORT: 5000
+      WRITE_QUORUM: "${WRITE_QUORUM:-3}"
+      MIN_DELAY: "${MIN_DELAY:-0}"
+      MAX_DELAY: "${MAX_DELAY:-1000}"
+      FOLLOWER_1_URL: "http://follower1remake:5000"
+      FOLLOWER_2_URL: "http://follower2remake:5000"
+      FOLLOWER_3_URL: "http://follower3remake:5000"
+      FOLLOWER_4_URL: "http://follower4remake:5000"
+      FOLLOWER_5_URL: "http://follower5remake:5000"
+    networks:
+      - replication-network
+    depends_on:
+      - follower1remake
+      - follower2remake
+      - follower3remake
+      - follower4remake
+      - follower5remake
+
+  follower1remake:
+    build:
+      context: .
+      dockerfile: follower/Dockerfile
+    container_name: follower1remake
+    ports:
+      - "5001:5000"
+    environment:
+      - PORT=5000
+      - FOLLOWER_ID=follower1remake
+    networks:
+      - replication-network
+
+  follower2remake:
+    build:
+      context: .
+      dockerfile: follower/Dockerfile
+    container_name: follower2remake
+    ports:
+      - "5002:5000"
+    environment:
+      - PORT=5000
+      - FOLLOWER_ID=follower2remake
+    networks:
+      - replication-network
+
+  follower3remake:
+    build:
+      context: .
+      dockerfile: follower/Dockerfile
+    container_name: follower3remake
+    ports:
+      - "5003:5000"
+    environment:
+      - PORT=5000
+      - FOLLOWER_ID=follower3remake
+    networks:
+      - replication-network
+
+  follower4remake:
+    build:
+      context: .
+      dockerfile: follower/Dockerfile
+    container_name: follower4remake
+    ports:
+      - "5004:5000"
+    environment:
+      - PORT=5000
+      - FOLLOWER_ID=follower4remake
+    networks:
+      - replication-network
+
+  follower5remake:
+    build:
+      context: .
+      dockerfile: follower/Dockerfile
+    container_name: follower5remake
+    ports:
+      - "5005:5000"
+    environment:
+      - PORT=5000
+      - FOLLOWER_ID=follower5remake
+    networks:
+      - replication-network
+
+networks:
+  replication-network:
+    driver: bridge
